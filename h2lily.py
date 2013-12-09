@@ -3,12 +3,18 @@
 Created on Thu Sep 12 09:23:42 2013
 
 @author: thomas
+TODO :
+note group = tuple
+group.add pour ajouter note à un group
+group.time = la metrique
+group = tuple de note, eventuellement singleton
+
 """
 
 import xml.etree.ElementTree as ET
 import numpy as np
 
-beatLength = 48
+
 mapVoice = [[6, 12, 11],  # Up
             [0, 2, 4]]  # Down
 
@@ -41,7 +47,7 @@ from math import *
 
 def find_duration(dur):
 
-    note = np.power(2,range(0,8))
+    note = np.power(2, range(0, 8))
     duration = 192/note
     mask = []
     for d in duration:
@@ -51,12 +57,11 @@ def find_duration(dur):
         else:
             mask.append(False)
 
-
-    return [n for n,m in zip(note,mask) if m]
+    return [n for n, m in zip(note, mask) if m]
 
 def find_fraction(duration):
     dur = duration
-    frac = Fraction(dur,192)
+    frac = Fraction(dur, 192)
     note = np.power(2, range(0,8))
     ref_duration = 192/note
     mask = []
@@ -96,41 +101,73 @@ def egypt(f):
     liste.append(f)
     return liste
 
+def h2read(h2file):
 
-def readH2Pattern(pattern):
-    size = int(pattern.find('size').text)
-    nbbeats = size / beatLength  # TODO check pattern length
+    import os.path
+    extension = os.path.splitext(h2file)[1]
 
-    noteListNode = pattern.find('noteList')
+    tree = ET.parse(h2file)
+    root = tree.getroot()
+
+    if extension == '.h2pattern':
+        xml_pattern = root.find('pattern')
+        patternStr = readH2Pattern(xml_pattern)
+
+    return patternStr
+
+
+class h2Pattern(object):
+    def __init__(self):
+        self.nb_beats = None
+        self.size = None
+
+
+def readH2Pattern(xml_pattern):
+    """
+    Read a Hydrogen pattern
+    """
+
+    BEAT_LENGTH = 48
+
+    pattern = h2Pattern()
+
+    pattern.size = int(xml_pattern.find('size').text)
+    pattern.nb_beats = pattern.size / BEAT_LENGTH  # TODO check pattern length
+
+    try:
+        pattern.name = xml_pattern.find('pattern_name').text
+    except AttributeError:
+        pattern.name = xml_pattern.find('name').text
+
+    print pattern
+
+    noteListNode = xml_pattern.find('noteList')
 
     noteList = []
     for note in noteListNode.iter('note'):
         instrument = int(note.find('instrument').text)
         position = int(note.find('position').text)
         #length = note.find('length')
-        noteList.append((position, instrument))
+        noteList.append({'position':position, 'instrument':instrument})
 
 
     print "Instruments :"
-    instruments = []
-    for (pos, instru) in noteList:
-        if instru not in instruments:
-            instruments.append(instru)
-            print  "%d" % instru
+    instruments = set([note['instrument'] for note in noteList])
+    print  instruments
     #noteList = np.array(noteList)
 
     # Break up in voices
     notesVoice = []
     for voiceInstru in mapVoice:
-        notesVoice.append([note for note in noteList if note[1] in voiceInstru])
+        notesVoice.append([note for note in noteList if note['instrument'] in voiceInstru])
     # TODO : print warning about instruments not in mapVoice
 
     # Break up in beats
     notesBeat = []
     for voice in notesVoice:
         beatList = []
-        for n in range(nbbeats):
-            beat = [(note[0]-n*beatLength, note[1]) for note in voice if note[0]>=n*beatLength and note[0]<(n+1)*beatLength]
+        for n in range(pattern.nb_beats):
+            beat = [(note[0]-n*BEAT_LENGTH, note[1]) for note in voice if note[0]>=n*BEAT_LENGTH and note[0]<(n+1)*BEAT_LENGTH]
             beat.sort()
             beatList.append(beat)
         notesBeat.append(beatList)
@@ -166,7 +203,7 @@ def readH2Pattern(pattern):
                     for (prefix, duration) in find_fraction(beat[0][0]):
                         lilyBeat.append('%sr%s' % (prefix, duration))
                 position = [note[0] for note in beat]
-                position .append(beatLength)
+                position .append(BEAT_LENGTH)
                 instrument = [note[1] for note in beat]
 
                 def mapInstru(instrument):
@@ -215,17 +252,13 @@ def makeHeader(songTitle = 'H2 Drum score',
 
 
 def main():
-    #h2File = "Pattern 1.h2pattern"
-    h2File = "Pattern2.h2pattern"
-    #h2File = "PatternOff.h2pattern"
-    h2File  = "PatternTriple.h2pattern"
+    #h2file = "Pattern 1.h2pattern"
+    h2file = "Pattern2.h2pattern"
+    #h2file = "PatternOff.h2pattern"
+    h2file  = "PatternTriple.h2pattern"
 
-    tree = ET.parse(h2File)
-    root = tree.getroot()
 
-    pattern = root.find('pattern')
-
-    patternStr = readH2Pattern(pattern)
+    patternStr = h2read(h2file)
 
     header = makeHeader()
 
@@ -249,10 +282,18 @@ def main():
     drumStaff += '    \\drumScore\n>>'
 
     lilyDoc = header + '\n' + PatternDefinition + '\n' + drumScore + '\n' + drumStaff
-    fileName = h2File + '.ly'
+    fileName = h2file + '.ly'
 
     with open(fileName, 'w+') as lilyFile:
         lilyFile.write(lilyDoc)
+
+
+    import subprocess
+
+    command = ['lilypond']
+    command.append(h2file + '.ly')
+    stdout = subprocess.check_output(command)
+
 
 if __name__ == "__main__":
     main()
