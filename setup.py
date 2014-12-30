@@ -5,7 +5,7 @@ from setuptools import setup
 
 setup(name='h2lily',
       version='0.1',
-      description='Convert Hydrogen drum pattern to lilypond file',
+      description='Export and engrave Hydrogen drum pattern to Lilypond sheet',
       url='http://github.com/thomasfillon/h2lily',
       author='Thomas Fillon',
       author_email='thomas@parisson.com',
