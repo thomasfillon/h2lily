@@ -1,7 +1,7 @@
 h2lily
 ======
 
-Export and engrave Hydrogen drum pattern to Lilypond sheet.
+Export Hydrogen drum pattern to Lilypond sheet.
 
 Status
 ------
